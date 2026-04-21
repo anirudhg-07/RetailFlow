@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Product{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>Edit Product #{{ product.product_id }}</h1>
+
+    <form method="post" action="{{ url_for('products.products_update', product_id=product.product_id) }}">
+      <div class="grid grid-2">
+        <div>
+          <label>Product name</label>
+          <input name="product_name" value="{{ product.product_name }}" required />
+        </div>
+        <div>
+          <label>Category</label>
+          <input name="category" value="{{ product.category }}" required />
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Price</label>
+          <input name="price" type="number" step="0.01" min="0" value="{{ product.price }}" required />
+        </div>
+        <div>
+          <label>Quantity</label>
+          <input name="quantity" type="number" step="1" min="0" value="{{ product.quantity }}" required />
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Supplier (optional)</label>
+          <select name="supplier_id">
+            <option value="" {% if not product.supplier_id %}selected{% endif %}>— None —</option>
+            {% for s in suppliers %}
+              <option value="{{ s.supplier_id }}" {% if product.supplier_id == s.supplier_id %}selected{% endif %}>{{ s.supplier_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="actions">
+        <button class="button" type="submit">Save</button>
+        <a class="button secondary" href="{{ url_for('products.products_list') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

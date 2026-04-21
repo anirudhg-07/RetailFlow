@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Suppliers{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>Suppliers</h1>
+    <p class="small">Add supplier using the form. Suppliers used by products can’t be deleted.</p>
+
+    <form method="get" action="{{ url_for('suppliers.suppliers_list') }}" style="margin: 10px 0 18px;">
+      <div class="grid grid-2">
+        <div>
+          <label>Search</label>
+          <input name="q" placeholder="Name, phone, or email" value="{{ q or '' }}" />
+        </div>
+        <div class="actions" style="align-self: end;">
+          <button class="button secondary" type="submit">Search</button>
+          <a class="button secondary" href="{{ url_for('suppliers.suppliers_list') }}">Clear</a>
+        </div>
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('suppliers.suppliers_create') }}">
+      <div class="grid grid-2">
+        <div>
+          <label>Supplier name</label>
+          <input name="supplier_name" required />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input name="phone" required />
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Email (optional)</label>
+          <input name="email" type="email" />
+        </div>
+        <div>
+          <label>Address</label>
+          <input name="address" required />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="button" type="submit">Add Supplier</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Address</th>
+          <th style="width: 180px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+          <tr>
+            <td>{{ s.supplier_id }}</td>
+            <td>{{ s.supplier_name }}</td>
+            <td>{{ s.phone }}</td>
+            <td>{{ s.email or '' }}</td>
+            <td>{{ s.address }}</td>
+            <td>
+              <a class="button secondary" href="{{ url_for('suppliers.suppliers_edit_form', supplier_id=s.supplier_id) }}">Edit</a>
+              <form class="inline" method="post" action="{{ url_for('suppliers.suppliers_delete', supplier_id=s.supplier_id) }}" onsubmit="return confirm('Delete this supplier?');">
+                <button class="button danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

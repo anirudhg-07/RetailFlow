@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Supplier{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>Edit Supplier #{{ supplier.supplier_id }}</h1>
+
+    <form method="post" action="{{ url_for('suppliers.suppliers_update', supplier_id=supplier.supplier_id) }}">
+      <div class="grid grid-2">
+        <div>
+          <label>Supplier name</label>
+          <input name="supplier_name" value="{{ supplier.supplier_name }}" required />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input name="phone" value="{{ supplier.phone }}" required />
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Email (optional)</label>
+          <input name="email" type="email" value="{{ supplier.email or '' }}" />
+        </div>
+        <div>
+          <label>Address</label>
+          <input name="address" value="{{ supplier.address }}" required />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="button" type="submit">Save</button>
+        <a class="button secondary" href="{{ url_for('suppliers.suppliers_list') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
