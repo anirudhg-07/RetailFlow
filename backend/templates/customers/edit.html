@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Customer{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>Edit Customer #{{ customer.customer_id }}</h1>
+
+    <form method="post" action="{{ url_for('customers.customers_update', customer_id=customer.customer_id) }}">
+      <div class="grid grid-2">
+        <div>
+          <label>Customer name</label>
+          <input name="customer_name" value="{{ customer.customer_name }}" required />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input name="phone" value="{{ customer.phone }}" required />
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Email (optional)</label>
+          <input name="email" type="email" value="{{ customer.email or '' }}" />
+        </div>
+        <div></div>
+      </div>
+
+      <div class="actions">
+        <button class="button" type="submit">Save</button>
+        <a class="button secondary" href="{{ url_for('customers.customers_list') }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

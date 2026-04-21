@@ -225,6 +225,8 @@ This section describes **what we will build in each phase**, split into **fronte
 
 #### 1C) Customer module
 
+**Status: ✅ Completed (as of 22 Apr 2026)**
+
 **Frontend (pages)**
 - `GET /customers`: list
 - `POST /customers`: create
