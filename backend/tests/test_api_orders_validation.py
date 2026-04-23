@@ -172,3 +172,52 @@ def test_low_stock_report_default_threshold_5(monkeypatch):
     assert data["ok"] is True
     assert data["threshold"] == 5
     assert isinstance(data["results"], list)
+
+
+def test_dashboard_kpis_returns_ok(monkeypatch):
+    import api as api_module
+
+    class _Cur:
+        def __init__(self):
+            self._i = 0
+
+        def execute(self, *_args, **_kwargs):
+            self._i += 1
+            return None
+
+        def fetchone(self):
+            # Called 4 times in order:
+            # 1) total_products
+            # 2) low_stock_count
+            # 3) today
+            # 4) month
+            if self._i == 1:
+                return {"total_products": 10}
+            if self._i == 2:
+                return {"low_stock_count": 2}
+            if self._i == 3:
+                return {"orders_today": 1, "revenue_today": 99.5}
+            if self._i == 4:
+                return {"orders_month": 3, "revenue_month": 150}
+            return None
+
+        def fetchall(self):
+            return []
+
+    class _Conn:
+        def cursor(self, dictionary=False):
+            return _Cur()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(api_module, "get_connection", lambda: _Conn())
+
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.get("/api/dashboard")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert "kpis" in data

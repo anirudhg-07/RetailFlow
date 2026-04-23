@@ -411,3 +411,75 @@ def api_report_low_stock():
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/dashboard")
+def api_dashboard():
+    """Dashboard KPI cards.
+
+    Query params:
+      - low_stock_threshold=<int> (optional, default=5)
+    """
+
+    low_stock_threshold = _parse_int((request.args.get("low_stock_threshold") or "").strip())
+    if low_stock_threshold is None:
+        low_stock_threshold = 5
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("SELECT COUNT(*) AS total_products FROM Product")
+        total_products = (cur.fetchone() or {}).get("total_products", 0)
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS low_stock_count
+            FROM Product
+            WHERE quantity <= %s
+            """,
+            (low_stock_threshold,),
+        )
+        low_stock_count = (cur.fetchone() or {}).get("low_stock_count", 0)
+
+        # Orders + revenue today
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS orders_today,
+                COALESCE(SUM(total_amount), 0) AS revenue_today
+            FROM Orders
+            WHERE order_date = CURDATE()
+            """
+        )
+        today = cur.fetchone() or {"orders_today": 0, "revenue_today": 0}
+
+        # Orders + revenue current month
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS orders_month,
+                COALESCE(SUM(total_amount), 0) AS revenue_month
+            FROM Orders
+            WHERE YEAR(order_date) = YEAR(CURDATE())
+              AND MONTH(order_date) = MONTH(CURDATE())
+            """
+        )
+        month = cur.fetchone() or {"orders_month": 0, "revenue_month": 0}
+
+        return {
+            "ok": True,
+            "kpis": {
+                "total_products": int(total_products),
+                "low_stock_threshold": int(low_stock_threshold),
+                "low_stock_count": int(low_stock_count),
+                "orders_today": int(today.get("orders_today", 0)),
+                "revenue_today": str(today.get("revenue_today", 0)),
+                "orders_month": int(month.get("orders_month", 0)),
+                "revenue_month": str(month.get("revenue_month", 0)),
+            },
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
