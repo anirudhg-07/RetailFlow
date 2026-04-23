@@ -14,10 +14,12 @@ def create_app() -> Flask:
     from suppliers import bp as suppliers_bp
     from products import bp as products_bp
     from customers import bp as customers_bp
+    from orders import bp as orders_bp
 
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(customers_bp)
+    app.register_blueprint(orders_bp)
 
     @app.get("/")
     def home():
@@ -27,6 +29,7 @@ def create_app() -> Flask:
             "<p><a href='/suppliers'>Go to Suppliers</a></p>"
             "<p><a href='/products'>Go to Products</a></p>"
             "<p><a href='/customers'>Go to Customers</a></p>"
+            "<p><a href='/orders/new'>Create Order</a></p>"
         )
 
     @app.get("/api/health")
