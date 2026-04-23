@@ -27,7 +27,6 @@ def test_create_order_rejects_bad_quantity():
     )
     assert resp.status_code == 400
 
-
 def test_get_order_not_found_returns_404(monkeypatch):
     # DB-independent test by monkeypatching get_connection used by api.py
     import api as api_module
@@ -56,3 +55,46 @@ def test_get_order_not_found_returns_404(monkeypatch):
 
     resp = client.get("/api/orders/999999")
     assert resp.status_code == 404
+
+
+def test_top_products_report_returns_ok(monkeypatch):
+    import api as api_module
+
+    class _Cur:
+        def __init__(self):
+            self._rows = [
+                {
+                    "product_id": 1,
+                    "product_name": "Test Product",
+                    "category": "Test",
+                    "total_qty_sold": 5,
+                    "total_revenue": 50,
+                }
+            ]
+
+        def execute(self, *_args, **_kwargs):
+            return None
+
+        def fetchall(self):
+            return self._rows
+
+        def fetchone(self):
+            return None
+
+    class _Conn:
+        def cursor(self, dictionary=False):
+            return _Cur()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(api_module, "get_connection", lambda: _Conn())
+
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.get("/api/reports/top-products?limit=5")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert isinstance(data["results"], list)

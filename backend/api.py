@@ -243,3 +243,59 @@ def api_get_order(order_id: int):
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/reports/top-products")
+def api_report_top_products():
+    """Best-selling products.
+
+    Query params:
+      - start_date=YYYY-MM-DD (optional)
+      - end_date=YYYY-MM-DD (optional)
+      - limit=<int> (optional, default=10, max=100)
+
+    Returns products ranked by quantity sold, plus revenue.
+    """
+
+    start_date = (request.args.get("start_date") or "").strip() or None
+    end_date = (request.args.get("end_date") or "").strip() or None
+    limit = _parse_int((request.args.get("limit") or "").strip()) or 10
+    limit = max(1, min(100, limit))
+
+    where = []
+    params: list[object] = []
+    if start_date:
+        where.append("o.order_date >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("o.order_date <= %s")
+        params.append(end_date)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT
+                od.product_id,
+                p.product_name,
+                p.category,
+                SUM(od.quantity) AS total_qty_sold,
+                SUM(od.quantity * od.price) AS total_revenue
+            FROM Order_Details od
+            JOIN Orders o ON o.order_id = od.order_id
+            LEFT JOIN Product p ON p.product_id = od.product_id
+            {where_sql}
+            GROUP BY od.product_id, p.product_name, p.category
+            ORDER BY total_qty_sold DESC
+            LIMIT %s
+            """,
+            tuple(params + [limit]),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "results": rows}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()

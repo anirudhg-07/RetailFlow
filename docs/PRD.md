@@ -305,6 +305,9 @@ This section describes **what we will build in each phase**, split into **fronte
 - `GET /reports/low-stock`: stock threshold
 - `GET /reports/top-products`: best-selling products
 
+**Status update (backend)**
+- ✅ Implemented: `GET /api/reports/top-products` (as of 24 Apr 2026)
+
 **Backend (logic)**
 - Aggregation queries on `Orders` and `Order_Details`
 - Use existing indexes + add more only if real slow queries appear
