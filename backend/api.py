@@ -136,3 +136,110 @@ def api_create_order():
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/orders")
+def api_list_orders():
+    """List orders (LIMIT 500).
+
+    Optional query params:
+      - start_date=YYYY-MM-DD
+      - end_date=YYYY-MM-DD
+      - customer_id=<int>
+    """
+
+    start_date = (request.args.get("start_date") or "").strip() or None
+    end_date = (request.args.get("end_date") or "").strip() or None
+    customer_id = _parse_int((request.args.get("customer_id") or "").strip())
+
+    where = []
+    params: list[object] = []
+
+    if start_date:
+        where.append("o.order_date >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("o.order_date <= %s")
+        params.append(end_date)
+    if customer_id is not None:
+        where.append("o.customer_id = %s")
+        params.append(customer_id)
+
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT
+                o.order_id,
+                o.customer_id,
+                c.customer_name,
+                o.order_date,
+                o.total_amount
+            FROM Orders o
+            LEFT JOIN Customer c ON c.customer_id = o.customer_id
+            {where_sql}
+            ORDER BY o.order_id DESC
+            LIMIT 500
+            """,
+            tuple(params),
+        )
+        orders = cur.fetchall()
+        return {"ok": True, "orders": orders}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
+
+
+@bp.get("/orders/<int:order_id>")
+def api_get_order(order_id: int):
+    """Get an order header + items."""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                o.order_id,
+                o.customer_id,
+                c.customer_name,
+                o.order_date,
+                o.total_amount
+            FROM Orders o
+            LEFT JOIN Customer c ON c.customer_id = o.customer_id
+            WHERE o.order_id = %s
+            """,
+            (order_id,),
+        )
+        order = cur.fetchone()
+        if not order:
+            return {"ok": False, "error": "order not found"}, 404
+
+        cur.execute(
+            """
+            SELECT
+                od.order_detail_id,
+                od.product_id,
+                p.product_name,
+                od.quantity,
+                od.price,
+                (od.quantity * od.price) AS line_total
+            FROM Order_Details od
+            LEFT JOIN Product p ON p.product_id = od.product_id
+            WHERE od.order_id = %s
+            ORDER BY od.order_detail_id
+            """,
+            (order_id,),
+        )
+        items = cur.fetchall()
+
+        return {"ok": True, "order": order, "items": items}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()

@@ -279,6 +279,8 @@ This section describes **what we will build in each phase**, split into **fronte
 
 #### 2B) Orders browsing
 
+**Status: ✅ Backend API Completed (as of 24 Apr 2026)**
+
 **Frontend (pages)**
 - `GET /orders`: list + filters (date range, customer)
 - `GET /orders/<id>`: detail (header + items)
