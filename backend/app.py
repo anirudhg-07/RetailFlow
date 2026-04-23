@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask
+from flask_cors import CORS
 
 
 def create_app() -> Flask:
@@ -10,16 +11,21 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 
+    # Allow React dev server to call /api/*
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+
     # Blueprints
     from suppliers import bp as suppliers_bp
     from products import bp as products_bp
     from customers import bp as customers_bp
     from orders import bp as orders_bp
+    from api import bp as api_bp
 
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(customers_bp)
     app.register_blueprint(orders_bp)
+    app.register_blueprint(api_bp)
 
     @app.get("/")
     def home():
