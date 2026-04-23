@@ -250,6 +250,8 @@ This section describes **what we will build in each phase**, split into **fronte
 
 #### 2A) Create order flow
 
+**Status: 🟡 UI Completed (as of 24 Apr 2026); DB transaction + stock logic to be completed next (Phase 2 core logic).**
+
 **Frontend (pages)**
 - `GET /orders/new`: order form
 	- select customer
