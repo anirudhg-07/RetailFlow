@@ -137,3 +137,38 @@ def test_sales_report_returns_ok(monkeypatch):
     data = resp.get_json()
     assert data["ok"] is True
     assert "summary" in data and "daily" in data
+
+
+def test_low_stock_report_default_threshold_5(monkeypatch):
+    import api as api_module
+
+    class _Cur:
+        def execute(self, *_args, **_kwargs):
+            return None
+
+        def fetchall(self):
+            return [
+                {"product_id": 1, "product_name": "Low", "category": "X", "price": 10, "quantity": 3, "supplier_id": None}
+            ]
+
+        def fetchone(self):
+            return None
+
+    class _Conn:
+        def cursor(self, dictionary=False):
+            return _Cur()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(api_module, "get_connection", lambda: _Conn())
+
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.get("/api/reports/low-stock")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["threshold"] == 5
+    assert isinstance(data["results"], list)

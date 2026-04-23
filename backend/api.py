@@ -370,3 +370,44 @@ def api_report_sales():
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/reports/low-stock")
+def api_report_low_stock():
+    """Low stock report.
+
+    Query params:
+      - threshold=<int> (optional, default=5)
+
+    Returns products where quantity <= threshold.
+    """
+
+    threshold = _parse_int((request.args.get("threshold") or "").strip())
+    if threshold is None:
+        threshold = 5
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                product_id,
+                product_name,
+                category,
+                price,
+                quantity,
+                supplier_id
+            FROM Product
+            WHERE quantity <= %s
+            ORDER BY quantity ASC, product_id ASC
+            LIMIT 500
+            """,
+            (threshold,),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "threshold": int(threshold), "results": rows}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
