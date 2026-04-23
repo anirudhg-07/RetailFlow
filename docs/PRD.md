@@ -307,6 +307,7 @@ This section describes **what we will build in each phase**, split into **fronte
 
 **Status update (backend)**
 - ✅ Implemented: `GET /api/reports/top-products` (as of 24 Apr 2026)
+- ✅ Implemented: `GET /api/reports/sales` (as of 24 Apr 2026)
 
 **Backend (logic)**
 - Aggregation queries on `Orders` and `Order_Details`

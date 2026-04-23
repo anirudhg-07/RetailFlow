@@ -98,3 +98,42 @@ def test_top_products_report_returns_ok(monkeypatch):
     data = resp.get_json()
     assert data["ok"] is True
     assert isinstance(data["results"], list)
+
+
+def test_sales_report_returns_ok(monkeypatch):
+    import api as api_module
+
+    class _Cur:
+        def __init__(self):
+            self._call = 0
+
+        def execute(self, *_args, **_kwargs):
+            self._call += 1
+            return None
+
+        def fetchone(self):
+            return {"order_count": 2, "total_revenue": 120, "avg_order_value": 60}
+
+        def fetchall(self):
+            return [
+                {"order_date": "2026-04-01", "order_count": 1, "total_revenue": 50},
+                {"order_date": "2026-04-02", "order_count": 1, "total_revenue": 70},
+            ]
+
+    class _Conn:
+        def cursor(self, dictionary=False):
+            return _Cur()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(api_module, "get_connection", lambda: _Conn())
+
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.get("/api/reports/sales?start_date=2026-04-01&end_date=2026-04-30")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert "summary" in data and "daily" in data

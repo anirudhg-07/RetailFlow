@@ -299,3 +299,74 @@ def api_report_top_products():
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/reports/sales")
+def api_report_sales():
+    """Sales report by date range.
+
+    Query params:
+      - start_date=YYYY-MM-DD (optional)
+      - end_date=YYYY-MM-DD (optional)
+
+    Returns:
+      - summary: order_count, total_revenue, avg_order_value
+      - daily: [{order_date, order_count, total_revenue}]
+    """
+
+    start_date = (request.args.get("start_date") or "").strip() or None
+    end_date = (request.args.get("end_date") or "").strip() or None
+
+    where = []
+    params: list[object] = []
+    if start_date:
+        where.append("order_date >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("order_date <= %s")
+        params.append(end_date)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        # Summary
+        cur.execute(
+            f"""
+            SELECT
+                COUNT(*) AS order_count,
+                COALESCE(SUM(total_amount), 0) AS total_revenue,
+                COALESCE(AVG(total_amount), 0) AS avg_order_value
+            FROM Orders
+            {where_sql}
+            """,
+            tuple(params),
+        )
+        summary = cur.fetchone() or {
+            "order_count": 0,
+            "total_revenue": 0,
+            "avg_order_value": 0,
+        }
+
+        # Daily breakdown
+        cur.execute(
+            f"""
+            SELECT
+                order_date,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(total_amount), 0) AS total_revenue
+            FROM Orders
+            {where_sql}
+            GROUP BY order_date
+            ORDER BY order_date ASC
+            """,
+            tuple(params),
+        )
+        daily = cur.fetchall()
+
+        return {"ok": True, "summary": summary, "daily": daily}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
