@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* App-wide baseline tweaks (keep this minimal; prefer Tailwind utilities). */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
