@@ -243,3 +243,243 @@ def api_get_order(order_id: int):
         return {"ok": False, "error": str(e)}, 500
     finally:
         conn.close()
+
+
+@bp.get("/reports/top-products")
+def api_report_top_products():
+    """Best-selling products.
+
+    Query params:
+      - start_date=YYYY-MM-DD (optional)
+      - end_date=YYYY-MM-DD (optional)
+      - limit=<int> (optional, default=10, max=100)
+
+    Returns products ranked by quantity sold, plus revenue.
+    """
+
+    start_date = (request.args.get("start_date") or "").strip() or None
+    end_date = (request.args.get("end_date") or "").strip() or None
+    limit = _parse_int((request.args.get("limit") or "").strip()) or 10
+    limit = max(1, min(100, limit))
+
+    where = []
+    params: list[object] = []
+    if start_date:
+        where.append("o.order_date >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("o.order_date <= %s")
+        params.append(end_date)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT
+                od.product_id,
+                p.product_name,
+                p.category,
+                SUM(od.quantity) AS total_qty_sold,
+                SUM(od.quantity * od.price) AS total_revenue
+            FROM Order_Details od
+            JOIN Orders o ON o.order_id = od.order_id
+            LEFT JOIN Product p ON p.product_id = od.product_id
+            {where_sql}
+            GROUP BY od.product_id, p.product_name, p.category
+            ORDER BY total_qty_sold DESC
+            LIMIT %s
+            """,
+            tuple(params + [limit]),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "results": rows}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
+
+
+@bp.get("/reports/sales")
+def api_report_sales():
+    """Sales report by date range.
+
+    Query params:
+      - start_date=YYYY-MM-DD (optional)
+      - end_date=YYYY-MM-DD (optional)
+
+    Returns:
+      - summary: order_count, total_revenue, avg_order_value
+      - daily: [{order_date, order_count, total_revenue}]
+    """
+
+    start_date = (request.args.get("start_date") or "").strip() or None
+    end_date = (request.args.get("end_date") or "").strip() or None
+
+    where = []
+    params: list[object] = []
+    if start_date:
+        where.append("order_date >= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("order_date <= %s")
+        params.append(end_date)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        # Summary
+        cur.execute(
+            f"""
+            SELECT
+                COUNT(*) AS order_count,
+                COALESCE(SUM(total_amount), 0) AS total_revenue,
+                COALESCE(AVG(total_amount), 0) AS avg_order_value
+            FROM Orders
+            {where_sql}
+            """,
+            tuple(params),
+        )
+        summary = cur.fetchone() or {
+            "order_count": 0,
+            "total_revenue": 0,
+            "avg_order_value": 0,
+        }
+
+        # Daily breakdown
+        cur.execute(
+            f"""
+            SELECT
+                order_date,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(total_amount), 0) AS total_revenue
+            FROM Orders
+            {where_sql}
+            GROUP BY order_date
+            ORDER BY order_date ASC
+            """,
+            tuple(params),
+        )
+        daily = cur.fetchall()
+
+        return {"ok": True, "summary": summary, "daily": daily}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
+
+
+@bp.get("/reports/low-stock")
+def api_report_low_stock():
+    """Low stock report.
+
+    Query params:
+      - threshold=<int> (optional, default=5)
+
+    Returns products where quantity <= threshold.
+    """
+
+    threshold = _parse_int((request.args.get("threshold") or "").strip())
+    if threshold is None:
+        threshold = 5
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                product_id,
+                product_name,
+                category,
+                price,
+                quantity,
+                supplier_id
+            FROM Product
+            WHERE quantity <= %s
+            ORDER BY quantity ASC, product_id ASC
+            LIMIT 500
+            """,
+            (threshold,),
+        )
+        rows = cur.fetchall()
+        return {"ok": True, "threshold": int(threshold), "results": rows}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
+
+
+@bp.get("/dashboard")
+def api_dashboard():
+    """Dashboard KPI cards.
+
+    Query params:
+      - low_stock_threshold=<int> (optional, default=5)
+    """
+
+    low_stock_threshold = _parse_int((request.args.get("low_stock_threshold") or "").strip())
+    if low_stock_threshold is None:
+        low_stock_threshold = 5
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("SELECT COUNT(*) AS total_products FROM Product")
+        total_products = (cur.fetchone() or {}).get("total_products", 0)
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS low_stock_count
+            FROM Product
+            WHERE quantity <= %s
+            """,
+            (low_stock_threshold,),
+        )
+        low_stock_count = (cur.fetchone() or {}).get("low_stock_count", 0)
+
+        # Orders + revenue today
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS orders_today,
+                COALESCE(SUM(total_amount), 0) AS revenue_today
+            FROM Orders
+            WHERE order_date = CURDATE()
+            """
+        )
+        today = cur.fetchone() or {"orders_today": 0, "revenue_today": 0}
+
+        # Orders + revenue current month
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS orders_month,
+                COALESCE(SUM(total_amount), 0) AS revenue_month
+            FROM Orders
+            WHERE YEAR(order_date) = YEAR(CURDATE())
+              AND MONTH(order_date) = MONTH(CURDATE())
+            """
+        )
+        month = cur.fetchone() or {"orders_month": 0, "revenue_month": 0}
+
+        return {
+            "ok": True,
+            "kpis": {
+                "total_products": int(total_products),
+                "low_stock_threshold": int(low_stock_threshold),
+                "low_stock_count": int(low_stock_count),
+                "orders_today": int(today.get("orders_today", 0)),
+                "revenue_today": str(today.get("revenue_today", 0)),
+                "orders_month": int(month.get("orders_month", 0)),
+                "revenue_month": str(month.get("revenue_month", 0)),
+            },
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
+    finally:
+        conn.close()
